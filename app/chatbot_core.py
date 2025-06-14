@@ -7,7 +7,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 from dotenv import load_dotenv
 import concurrent.futures
 
-load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 MODEL = "llama3-70b-8192"
 
