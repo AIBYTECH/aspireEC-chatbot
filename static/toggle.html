@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot Toggle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .toggle-button {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #005B5B;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            animation: pulse 2s infinite;
+        }
+
+        .toggle-button:hover {
+            transform: scale(1.1);
+        }
+
+        .toggle-button.active {
+            transform: rotate(45deg);
+            animation: none;
+        }
+
+        .toggle-button::before {
+            content: '💬';
+            color: white;
+            font-size: 24px;
+        }
+
+        .toggle-button.active::before {
+            content: '×';
+            font-size: 30px;
+        }
+
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .popup-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .popup-content {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            background: white;
+            width: 380px;
+            height: 600px;
+            border-radius: 15px;
+            overflow: hidden;
+            transform: scale(0.7) translateY(100px);
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .popup-overlay.active .popup-content {
+            transform: scale(1) translateY(0);
+        }
+
+        .chat-header {
+            background: #005B5B;
+            color: white;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-header img {
+            width: 30px;
+            height: 30px;
+        }
+
+        .chat-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .popup-iframe {
+            flex: 1;
+            width: 100%;
+            height: calc(100% - 60px);
+            border: none;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(0, 91, 91, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 15px rgba(0, 91, 91, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(0, 91, 91, 0);
+            }
+        }
+
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            background: #005B5B;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-size: 14px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            display: none;
+            z-index: 1001;
+            animation: bounce 1s infinite;
+        }
+
+        .notification.active {
+            display: block;
+        }
+
+        @media (max-width: 480px) {
+            .toggle-button {
+                width: 50px;
+                height: 50px;
+                bottom: 20px;
+                right: 20px;
+            }
+
+            .toggle-button::before {
+                font-size: 20px;
+            }
+
+            .popup-content {
+                width: calc(100% - 40px);
+                height: calc(100% - 140px);
+                bottom: 80px;
+                right: 20px;
+            }
+
+            .notification {
+                bottom: 80px;
+                right: 20px;
+                font-size: 12px;
+                padding: 12px 20px;
+                width: calc(100% - 40px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="toggle-button" onclick="togglePopup()"></button>
+    <div class="notification">Need help? Chat with us!</div>
+    <div class="popup-overlay" onclick="closePopup(event)">
+        <div class="popup-content">
+            <div class="chat-header">
+                <img src="https://cdn-icons-png.flaticon.com/512/3135/3135789.png" alt="Chat Icon">
+                <h3>AspireEC Chatbot</h3>
+            </div>
+            <iframe src="http://127.0.0.1:8000/?embed=true" frameborder="0" class="popup-iframe" ></iframe>
+        </div>
+    </div>
+
+    <script>
+        let isOpen = false;
+        const button = document.querySelector('.toggle-button');
+        const overlay = document.querySelector('.popup-overlay');
+        const notification = document.querySelector('.notification');
+
+        // Show notification after 3 seconds
+        setTimeout(() => {
+            notification.classList.add('active');
+            // Hide notification after 5 seconds
+            setTimeout(() => {
+                notification.classList.remove('active');
+            }, 5000);
+        }, 3000);
+
+        function togglePopup() {
+            isOpen = !isOpen;
+            button.classList.toggle('active');
+            overlay.classList.toggle('active');
+            notification.classList.remove('active');
+        }
+
+        function closePopup(event) {
+            // Only close if clicking the overlay, not the content
+            if (event.target === overlay) {
+                togglePopup();
+            }
+        }
+
+        // Close popup when pressing Escape key
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && isOpen) {
+                togglePopup();
+            }
+        });
+
+        // Prevent iframe from closing popup when clicking inside it
+        document.querySelector('.popup-content').addEventListener('click', (event) => {
+            event.stopPropagation();
+        });
+
+        // Handle iframe load errors
+        document.querySelector('.popup-iframe').addEventListener('error', function() {
+            console.error('Error loading iframe content');
+            // You can show an error message to the user here
+        });
+    </script>
+</body>
+</html> 
