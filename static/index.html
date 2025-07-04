@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AspireEC Chatbot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --primary: #005B5B;
+      --bg: #f4f4f4;
+      --bot-bg: #e0f7f7;
+      --user-bg: #005B5B;
+      --text-light: #fff;
+      --text-dark: #333;
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      color: var(--text-dark);
+      overflow: hidden;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: var(--primary);
+      background: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .header img {
+      width: 24px;
+      height: 24px;
+      margin-right: 8px;
+    }
+
+    .chat-wrapper {
+      flex: 1;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chat {
+      flex-grow: 1;
+      padding-top: 1rem;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .message-row {
+      display: flex;
+      margin-bottom: 0.75rem;
+
+    }
+
+    .message-row.user {
+      justify-content: flex-end;
+    }
+
+    .message-row.bot {
+      justify-content: flex-start;
+    }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      margin: 0 8px;
+    }
+
+    .message {
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius);
+      max-width: 70%;
+      animation: fadeIn 0.3s ease forwards;
+      font-size: 0.9rem;
+    }
+
+    .message.bot {
+      background: var(--bot-bg);
+      color: var(--text-dark);
+    }
+
+    .message.user {
+      background: var(--user-bg);
+      color: var(--text-light);
+    }
+
+    .message.bot ul,
+    .message.bot ol {
+      padding-left: 2em;
+      margin-top: 0.5em;
+      margin-bottom: 0.5em;
+    }
+
+    .typing {
+      font-style: italic;
+      opacity: 0.7;
+      animation: blink 1s infinite;
+    }
+
+    .input-area {
+      display: flex;
+      border-top: 1px solid #ccc;
+      padding: 0.75rem;
+      background: #fff;
+    }
+
+    .input-area input {
+      flex-grow: 1;
+      padding: 0.6rem 1rem;
+      border: 1px solid #ccc;
+      border-radius: var(--radius);
+      font-size: 0.9rem;
+      outline: none;
+      transition: 0.3s border;
+    }
+
+    .input-area input:focus {
+      border-color: var(--primary);
+    }
+
+    .input-area button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      margin-left: 0.5rem;
+      padding: 0.6rem 1.2rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.3s;
+      font-size: 0.9rem;
+    }
+
+    .input-area button:hover {
+      background: #004242;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+
+    @media (max-width: 576px) {
+      .message {
+        max-width: 85%;
+        font-size: 0.85rem;
+      }
+      .input-area {
+        padding: 0.5rem;
+      }
+      .input-area input {
+        padding: 0.5rem 0.75rem;
+      }
+      .input-area button {
+        padding: 0.5rem 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- <div class="header">
+    <img src="https://cdn-icons-png.flaticon.com/512/3135/3135789.png" alt="Consulting Icon">
+    AspireEC Chatbot
+  </div> -->
+
+  <div class="chat-wrapper">
+    <div class="chat" id="chatBox"></div>
+    <div class="input-area">
+      <input type="text" id="msgInput" placeholder="Ask about study visas, scholarships, or admissions..." />
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    // const sessionId = Math.random().toString(36).substr(2);
+    const chatBox = document.getElementById("chatBox");
+
+    const sessionId = localStorage.getItem('chatSession') || generateSession();
+    function generateSession() {
+      const id = Math.random().toString(36).substr(2);
+      localStorage.setItem('chatSession', id);
+      return id;
+    }
+    
+    window.onload = () => {
+      appendMessage("bot", "Welcome to Aspire Educational Consultant! How can I help you today?");
+    };
+
+   
+
+    async function sendMessage() {
+      const input = document.getElementById("msgInput");
+      const message = input.value.trim();
+      if (!message) return;
+
+      appendMessage("user", message);
+      input.value = "";
+
+      const typingIndicator = appendTyping();
+
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, message })
+      });
+
+      const data = await res.json();
+      removeTyping(typingIndicator);
+      appendMessage("bot", data.response);
+    }
+
+    function appendMessage(role, text) {
+      const row = document.createElement("div");
+      row.className = `message-row ${role}`;
+
+      const avatar = document.createElement("img");
+      avatar.className = "avatar";
+      avatar.src = role === "user" 
+        ? "https://cdn-icons-png.flaticon.com/512/1946/1946429.png" 
+        : "https://cdn-icons-png.flaticon.com/512/4712/4712109.png";
+
+      const bubble = document.createElement("div");
+      bubble.className = `message ${role}`;
+
+      if (role === "bot") {
+        // Detect bullet points or numbered lists
+        const lines = text.split(/\r?\n/);
+        const isList = lines.some(line => line.trim().match(/^(-|\*|\d+\.)\s+/));
+        if (isList) {
+          // Create a list element
+          let listType = lines.some(line => line.trim().match(/^\d+\./)) ? 'ol' : 'ul';
+          const list = document.createElement(listType);
+          lines.forEach(line => {
+            const match = line.trim().match(/^(-|\*|\d+\.)\s+(.*)/);
+            if (match) {
+              const li = document.createElement('li');
+              li.textContent = match[2];
+              list.appendChild(li);
+            } else if (line.trim() !== '') {
+              // If not a bullet, add as a paragraph
+              const p = document.createElement('p');
+              p.textContent = line;
+              bubble.appendChild(p);
+            }
+          });
+          bubble.appendChild(list);
+        } else {
+          bubble.textContent = text;
+        }
+      } else {
+        bubble.textContent = text;
+      }
+
+      if (role === "user") {
+        row.appendChild(bubble);
+        row.appendChild(avatar);
+      } else {
+        row.appendChild(avatar);
+        row.appendChild(bubble);
+      }
+
+      chatBox.appendChild(row);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function appendTyping() {
+      const row = document.createElement("div");
+      row.className = "message-row bot typing";
+
+      const avatar = document.createElement("img");
+      avatar.className = "avatar";
+      avatar.src = "https://cdn-icons-png.flaticon.com/512/4712/4712109.png";
+
+      const bubble = document.createElement("div");
+      bubble.className = "message bot";
+      bubble.textContent = "Typing...";
+
+      row.appendChild(avatar);
+      row.appendChild(bubble);
+      chatBox.appendChild(row);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      return row;
+    }
+
+    function removeTyping(element) {
+      element.remove();
+    }
+
+    // Handle Enter key
+    document.getElementById("msgInput").addEventListener("keypress", function(e) {
+      if (e.key === "Enter") {
+        sendMessage();
+      }
+    });
+  </script>
+</body>
+</html>
+
+
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Aibytec Chatbot</title>
+  <style>
+    body { font-family: Arial; max-width: 600px; margin: auto; }
+    .chat { border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: auto; }
+    .bot { background: #f0f0f0; padding: 5px; border-radius: 5px; margin: 5px 0; }
+    .user { background: #0078D4; color: white; padding: 5px; border-radius: 5px; margin: 5px 0; text-align: right; }
+  </style>
+</head>
+<body>
+  <h2>Aibytec Chatbot</h2>
+  <div class="chat" id="chatBox"></div>
+  <input type="text" id="msgInput" placeholder="Ask something..." />
+  <button onclick="sendMessage()">Send</button>
+
+  <script>
+    const sessionId = Math.random().toString(36).substr(2);
+    async function sendMessage() {
+      const input = document.getElementById("msgInput");
+      const message = input.value;
+      if (!message) return;
+      appendMessage("user", message);
+      input.value = "";
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ session_id: sessionId, message })
+      });
+      const data = await res.json();
+      appendMessage("bot", data.response);
+    }
+
+    function appendMessage(role, msg) {
+      const div = document.createElement("div");
+      div.className = role === "user" ? "user" : "bot";
+      div.textContent = msg;
+      document.getElementById("chatBox").appendChild(div);
+    }
+  </script>
+</body>
+</html> -->
