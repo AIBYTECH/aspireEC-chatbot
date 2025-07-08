@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr
 import uuid
 from app.session_manager import get_session, add_message
-from app.chatbot_core import initialize_resources, answer_query
+from app.chatbot_core import answer_query
 import os
 import smtplib
 from email.mime.text import MIMEText
@@ -76,48 +76,38 @@ class FormData(BaseModel):
     fieldOfInterest: str
     desiredCourse: str
 
-# Load resources
-chunks, vectorizer = initialize_resources()
-
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     messages = get_session(req.session_id)
     messages.append({"role": "user", "content": req.message})
-    context, reply = answer_query(req.message, messages, chunks, vectorizer)
+    context, reply = answer_query(req.message, messages)
     messages.append({"role": "assistant", "content": reply})
     add_message(req.session_id, messages)
 
-    # --- New chatData logic ---
-    now = datetime.now()
-    date_str = now.strftime('%Y-%m-%d')
-    time_str = now.strftime('%H:%M:%S')
-    chatData = []
-    chat_file_name = f"Chats/{date_str}_{req.session_id}.json"
-    # Try to load existing chatData if file exists
-    if os.path.exists(chat_file_name):
-        with open(chat_file_name, 'r', encoding='utf-8') as f:
-            try:
-                chatData = json.load(f)
-            except Exception:
-                chatData = []
-    # Add user message
-    chatData.append({
-        "role": "user",
-        "content": req.message,
-        "date": date_str,
-        "time": time_str
-    })
-    # Add assistant message
-    chatData.append({
-        "role": "assistant",
-        "content": reply,
-        "date": date_str,
-        "time": time_str
-    })
-    # Save chatData to file
-    with open(chat_file_name, 'w', encoding='utf-8') as f:
-        json.dump(chatData, f, ensure_ascii=False, indent=2)
-    # --- End chatData logic ---
+    # Count only user messages
+    user_message_count = sum(1 for m in messages if m["role"] == "user")
+
+    # If 5 user messages, send email
+    if user_message_count % 10 == 0:
+        try:
+            # Format chat transcript
+            transcript = ""
+            for m in messages:
+                transcript += f"{m['role'].capitalize()}: {m['content']}\n"
+
+            msg = MIMEMultipart()
+            msg['From'] = SMTP_USERNAME
+            msg['To'] = ADMIN_EMAIL
+            msg['Subject'] = f"Chat Transcript for Session {req.session_id} ({user_message_count} messages)"
+
+            msg.attach(MIMEText(transcript, 'plain'))
+
+            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                server.starttls()
+                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.send_message(msg)
+        except Exception as e:
+            print(f"Error sending chat transcript: {str(e)}")
 
     return ChatResponse(response=reply, messages=messages)
 
