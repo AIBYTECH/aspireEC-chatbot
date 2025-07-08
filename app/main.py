@@ -43,11 +43,18 @@ app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 # app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Email configuration
-ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
-SMTP_SERVER = os.getenv("SMTP_SERVER")
-SMTP_PORT = os.getenv("SMTP_PORT")
-SMTP_USERNAME = os.getenv("SMTP_USERNAME")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+# ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
+# SMTP_SERVER = os.getenv("SMTP_SERVER")
+# SMTP_PORT = os.getenv("SMTP_PORT")
+# SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+# SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+
+# .env
+ADMIN_EMAIL = "info.aibytech@gmail.com " # Replace with actual admin email
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+SMTP_USERNAME = "info.aibytech@gmail.com"  # Replace with your email
+SMTP_PASSWORD = "znpt ppwy yvzi xomk"  # Replace with your app password
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -115,24 +122,81 @@ async def chat(req: ChatRequest):
 async def submit_form(form_data: FormData):
     try:
         # Create email message
-        msg = MIMEMultipart()
+        msg = MIMEMultipart("alternative")
         msg['From'] = SMTP_USERNAME
         msg['To'] = ADMIN_EMAIL
         msg['Subject'] = "New Student Information Form Submission"
 
-        # Create email body
-        body = f"""
-        New Student Information Form Submission:
-        
-        Name: {form_data.name}
-        Email: {form_data.email}
-        Phone: {form_data.phone or 'Not provided'}
-        Level of Study: {form_data.studyLevel}
-        Field of Interest: {form_data.fieldOfInterest}
-        Desired Course: {form_data.desiredCourse}
+        # Create beautiful HTML email body
+        html_body = f"""
+        <html>
+        <head>
+          <style>
+            .email-container {{
+              font-family: 'Segoe UI', Arial, sans-serif;
+              background: rgba(0,49,53,0.9);
+              padding: 24px;
+              border-radius: 12px;
+              max-width: 580px;
+              margin: 0 auto;
+              box-shadow: 0 2px 12px rgba(52,152,219,0.08);
+            }}
+            .email-title {{
+              color: #FFFFFF;
+              font-size: 1.3rem;
+              font-weight: bold;
+              margin-bottom: 18px;
+              text-align: center;
+            }}
+            .email-table {{
+              width: 100%;
+              border-collapse: collapse;
+              background: #fff;
+              border-radius: 8px;
+              overflow: hidden;
+            }}
+            .email-table td {{
+              padding: 10px 14px;
+              border-bottom: 1px solid #f0f0f0;
+              font-size: 1rem;
+            }}
+            .email-table tr:last-child td {{
+              border-bottom: none;
+            }}
+            .label {{
+              color: #34495e;
+              font-weight: 500;
+              width: 40%;
+              background: #f7fbff;
+            }}
+            .value {{
+              color: #2d3436;
+              width: 60%;
+            }}
+          </style>
+        </head>
+        <body>
+          <div class="email-container">
+            <div class="email-title">New Student Information Form Submission</div>
+            <table class="email-table">
+              <tr><td class="label">Name</td><td class="value">{form_data.name}</td></tr>
+              <tr><td class="label">Email</td><td class="value">{form_data.email}</td></tr>
+              <tr><td class="label">Phone</td><td class="value">{form_data.phone or 'Not provided'}</td></tr>
+              <tr><td class="label">Level of Study</td><td class="value">{form_data.studyLevel}</td></tr>
+              <tr><td class="label">Field of Interest</td><td class="value">{form_data.fieldOfInterest}</td></tr>
+              <tr><td class="label">Desired Course</td><td class="value">{form_data.desiredCourse}</td></tr>
+            </table>
+          </div>
+        </body>
+        </html>
         """
 
-        msg.attach(MIMEText(body, 'plain'))
+        # Attach HTML and plain text fallback
+        plain_body = f"""
+        New Student Information Form Submission:\n\nName: {form_data.name}\nEmail: {form_data.email}\nPhone: {form_data.phone or 'Not provided'}\nLevel of Study: {form_data.studyLevel}\nField of Interest: {form_data.fieldOfInterest}\nDesired Course: {form_data.desiredCourse}
+        """
+        msg.attach(MIMEText(plain_body, 'plain'))
+        msg.attach(MIMEText(html_body, 'html'))
 
         # Send email
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
