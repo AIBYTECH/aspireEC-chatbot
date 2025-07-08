@@ -5,36 +5,34 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from dotenv import load_dotenv
 import concurrent.futures
-from sentence_transformers import SentenceTransformer
-import faiss
-import numpy as np
 
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 MODEL = "llama3-70b-8192"
 
-FAISS_INDEX_PATH = os.path.join(os.path.dirname(__file__), '..', 'cache', 'faiss_index.bin')
-FAISS_META_PATH = os.path.join(os.path.dirname(__file__), '..', 'cache', 'faiss_meta.pkl')
-EMBED_MODEL = 'all-MiniLM-L6-v2'
+META_PATH = os.path.join(os.path.dirname(__file__), '..', 'cache', 'faiss_meta.pkl')
 
-# Load FAISS index and metadata at startup
-model = SentenceTransformer(EMBED_MODEL)
-faiss_index = faiss.read_index(FAISS_INDEX_PATH)
-with open(FAISS_META_PATH, 'rb') as f:
-    faiss_meta = pickle.load(f)
+# Load chunk metadata at startup
+with open(META_PATH, 'rb') as f:
+    chunk_meta = pickle.load(f)
 
-def embed_query(query):
-    return model.encode([query], convert_to_numpy=True)
+# Prepare all chunk texts for vectorization
+all_chunk_texts = [meta['text'] for meta in chunk_meta]
 
-def find_relevant_chunks_faiss(query, k=6):
+# TF-IDF vectorizer (fit once at startup)
+tfidf_vectorizer = TfidfVectorizer().fit(all_chunk_texts)
+chunk_tfidf = tfidf_vectorizer.transform(all_chunk_texts)
+
+def find_relevant_chunks(query, k=6):
     # 1. Direct string match (case-insensitive)
-    for meta in faiss_meta:
+    for meta in chunk_meta:
         if query.lower() in meta['text'].lower():
             return [meta['text']]
-    # 2. If not found, use embedding search
-    query_vec = embed_query(query)
-    D, I = faiss_index.search(query_vec, k)
-    return [faiss_meta[i]['text'] for i in I[0]]
+    # 2. TF-IDF + cosine similarity
+    query_vec = tfidf_vectorizer.transform([query])
+    similarities = cosine_similarity(query_vec, chunk_tfidf).flatten()
+    top_indices = similarities.argsort()[-k:][::-1]
+    return [all_chunk_texts[i] for i in top_indices]
 
 def get_ai_response(messages, context):
     system = {
@@ -95,8 +93,8 @@ def answer_query(query, messages, k=6):
     if smalltalk_response:
         return "", smalltalk_response
 
-    # Otherwise proceed with FAISS vector search + LLM
-    context = "\n".join(find_relevant_chunks_faiss(query, k=k))
+    # Otherwise proceed with TF-IDF vector search + LLM
+    context = "\n".join(find_relevant_chunks(query, k=k))
     reply = get_ai_response(messages, context)
     return context, reply
 
