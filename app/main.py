@@ -43,18 +43,13 @@ app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 # app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Email configuration
-# ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
-# SMTP_SERVER = os.getenv("SMTP_SERVER")
-# SMTP_PORT = os.getenv("SMTP_PORT")
-# SMTP_USERNAME = os.getenv("SMTP_USERNAME")
-# SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
+SMTP_SERVER = os.getenv("SMTP_SERVER")
+SMTP_PORT = os.getenv("SMTP_PORT")
+SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
-# .env
-ADMIN_EMAIL = "info.aibytech@gmail.com " # Replace with actual admin email
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-SMTP_USERNAME = "info.aibytech@gmail.com"  # Replace with your email
-SMTP_PASSWORD = "znpt ppwy yvzi xomk"  # Replace with your app password
+
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
